@@ -18,7 +18,9 @@
   },
   "homepage": "https://github.com/ximepaparella/CRM#readme",
   "dependencies": {
-    "apollo-server": "^3.7.0"
+    "apollo-server": "^3.7.0",
+    "dotenv": "^16.0.1",
+    "mongoose": "^6.3.4"
   },
   "devDependencies": {
     "nodemon": "^2.0.16"
