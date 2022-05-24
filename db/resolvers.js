@@ -1,4 +1,5 @@
 const User = require("./../models/User");
+const Product = require("./../models/Product");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config({ path: "variables.env" });
@@ -15,6 +16,22 @@ const resolvers = {
     getUser: async (_, { token }, ctx) => {
       const userId = await jwt.verify(token, process.env.JWT_SECRET_WORD);
       return userId;
+    },
+    getAllProducts: async () => {
+      try {
+        const products = await Product.find({});
+        return products;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getProduct: async (_, { id }, ctx) => {
+      //Check if Product Exists
+      const product = await Product.findById(id);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+      return product;
     },
   },
   Mutation: {
@@ -64,6 +81,41 @@ const resolvers = {
         // createToken(User (get in userExists), ENV de Secret Word, Expiration Time)
         token: createToken(userExists, process.env.JWT_SECRET_WORD, "24h"),
       };
+    },
+    newProduct: async (_, { input }, ctx) => {
+      try {
+        const newProduct = new Product(input);
+        // almacenar en la base de datos
+        const result = await newProduct.save();
+        return result;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    updateProduct: async (_, { id, input }, ctx) => {
+      //Check if Product Exists
+      let product = await Product.findById(id);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      // save in database
+      product = await Product.findOneAndUpdate({ _id: id }, input, {
+        new: true,
+      });
+      return product;
+    },
+    deleteProduct: async (_, { id }, ctx) => {
+      //Check if Product Exists
+      let product = await Product.findById(id);
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      // Delete from database
+
+      product = await Product.findOneAndDelete({ _id: id });
+      return "Product Deleted";
     },
   },
 };
