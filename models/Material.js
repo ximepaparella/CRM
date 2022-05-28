@@ -41,6 +41,20 @@ const MaterialSchema = mongoose.Schema({
     trim: true,
   },
   publicationDate: { type: Date, default: Date.now() },
+  status: {
+    type: String,
+    default: "Pending",
+  },
+  client: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: "Client",
+  },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    required: true,
+    ref: "User",
+  },
 });
 
 module.exports = mongoose.model("Material", MaterialSchema);
