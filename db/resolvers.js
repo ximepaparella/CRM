@@ -15,7 +15,7 @@ const createToken = (user, secret, expiresIn) => {
 //Resolvers
 const resolvers = {
   Query: {
-    getUser: async (_, { token }, ctx) => {
+    getUser: async (_, { token }) => {
       const userId = await jwt.verify(token, process.env.JWT_SECRET_WORD);
       return userId;
     },
@@ -27,7 +27,7 @@ const resolvers = {
         console.log(error);
       }
     },
-    getProduct: async (_, { id }, ctx) => {
+    getProduct: async (_, { id }) => {
       //Check if Product Exists
       const product = await Product.findById(id);
       if (!product) {
@@ -100,6 +100,71 @@ const resolvers = {
     getOrderByState: async (_, { state }, ctx) => {
       const orders = await Order.find({ vendor: ctx.user.id, state });
       return orders;
+    },
+    bestClients: async () => {
+      const clients = await Order.aggregate([
+        // Mongo DB queries.
+
+        // search for completed state orders
+        { $match: { state: "Completed" } },
+
+        // get all the totals and make one final total
+        {
+          $group: {
+            _id: "$client",
+            total: { $sum: "$total" },
+          },
+        },
+        {
+          $limit: 10,
+        },
+        // search from the clients for their ids
+        {
+          $lookup: {
+            from: "clients",
+            localField: "_id",
+            foreignField: "_id",
+            as: "client",
+          },
+        },
+        {
+          $sort: { total: -1 },
+        },
+      ]);
+
+      return clients;
+    },
+    bestVendors: async () => {
+      const vendors = await Order.aggregate([
+        { $match: { state: "Completed" } },
+        {
+          $group: {
+            _id: "$vendor",
+            total: { $sum: "$total" },
+          },
+        },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "vendor",
+          },
+        },
+        {
+          $limit: 3,
+        },
+        {
+          $sort: { total: -1 },
+        },
+      ]);
+      return vendors;
+    },
+    searchProduct: async (_, { text }) => {
+      const products = await Product.find({
+        text: { $regex: new RegExp(text) },
+      }).limit(10);
+      return products;
     },
   },
   Mutation: {
