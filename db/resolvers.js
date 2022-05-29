@@ -1,6 +1,7 @@
 const User = require("./../models/User");
 const Product = require("./../models/Product");
 const Client = require("./../models/Client");
+const Order = require("./../models/Order");
 const bcryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 require("dotenv").config({ path: "variables.env" });
@@ -64,6 +65,41 @@ const resolvers = {
         throw new Error("You don't have access to this client information");
       }
       return client;
+    },
+    getAllOrders: async () => {
+      try {
+        const orders = await Order.find({});
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrderByVendor: async (_, {}, ctx) => {
+      try {
+        const orders = await Order.find({
+          vendor: ctx.user.id.toString(),
+        });
+        return orders;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    getOrder: async (_, { id }, ctx) => {
+      //Check if order exists
+      const order = await Order.findById(id);
+      if (!order) {
+        throw new Error("Order not found");
+      }
+      // Show only if order is from the vendor
+      if (order.vendor.toString() !== ctx.user.id) {
+        throw new Error("You don't have access to this order information");
+      }
+
+      return order;
+    },
+    getOrderByState: async (_, { state }, ctx) => {
+      const orders = await Order.find({ vendor: ctx.user.id, state });
+      return orders;
     },
   },
   Mutation: {
@@ -203,6 +239,100 @@ const resolvers = {
       // save in database
       client = await Client.findOneAndDelete({ _id: id });
       return "Client deleted";
+    },
+    newOrder: async (_, { input }, ctx) => {
+      //Check if client exists
+      const { client } = input;
+      let existClient = await Client.findById(client);
+      if (!existClient) {
+        throw new Error("Client not found");
+      }
+      //Check if client is from the vendor
+      if (existClient.vendor.toString() !== ctx.user.id) {
+        throw new Error("You don't have access to this client information");
+      }
+      //Check if stock is available
+      for await (const item of input.order) {
+        const { id } = item;
+
+        const product = await Product.findById(id);
+        if (item.quantity > product.stock) {
+          throw new Error("No hay stock disponible");
+        } else {
+          // Remove from product stock
+          product.stock = product.stock - item.quantity;
+          await product.save();
+        }
+      }
+
+      //Create new order
+      const newOrder = new Order(input);
+
+      //Asign to a vendor
+      newOrder.vendor = ctx.user.id;
+
+      //Save in DB
+      try {
+        const result = await newOrder.save();
+        return result;
+      } catch (error) {
+        console.log(error);
+      }
+    },
+    updateOrder: async (_, { id, input }, ctx) => {
+      const { client } = input;
+      //Check if order exists
+      const existOrder = Order.findById(id);
+      if (!existOrder) {
+        throw new Error("Order not found");
+      }
+
+      //Check if client exists
+      let existClient = await Client.findById(client);
+      if (!existClient) {
+        throw new Error("Client not found");
+      }
+
+      //Check if client is from the vendor
+      if (existClient.vendor.toString() !== ctx.user.id) {
+        throw new Error("You don't have access to this client information");
+      }
+
+      //Check if stock is available
+      for await (const item of input.order) {
+        const { id } = item;
+
+        const product = await Product.findById(id);
+        if (item.quantity > product.stock) {
+          throw new Error("No hay stock disponible");
+        } else {
+          // Remove from product stock
+          product.stock = product.stock - item.quantity;
+          await product.save();
+        }
+      }
+
+      // save in database
+      const order = await Order.findOneAndUpdate({ _id: id }, input, {
+        new: true,
+      });
+      return order;
+    },
+    deleteOrder: async (_, { id }, ctx) => {
+      //Check if client exists
+      let order = await Order.findById(id);
+      if (!order) {
+        throw new Error("Order not found");
+      }
+
+      //Check if the editor is the correct Vendor
+      if (order.vendor.toString() !== ctx.user.id) {
+        throw new Error("You don't have access to this client information");
+      }
+
+      // save in database
+      order = await Order.findOneAndDelete({ _id: id });
+      return "Order deleted";
     },
   },
 };
